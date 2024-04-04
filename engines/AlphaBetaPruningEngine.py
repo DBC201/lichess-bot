@@ -1,5 +1,8 @@
+import time
+
 import chess
 
+from lib import model
 from lib.conversation import Conversation
 from lib.engine_wrapper import MinimalEngine, MOVE
 from chess.engine import PlayResult
@@ -55,6 +58,8 @@ class Node:
 
 class AlphaBetaPruningEngine(MinimalEngine):
     cache = None
+    time_spent = 0
+    depth = 3
 
     def alpha_beta_pruning(self, root: Node, max_depth: int, alpha: int, beta: int) -> None:
         if root.depth >= max_depth or root.game.is_game_over():
@@ -86,12 +91,28 @@ class AlphaBetaPruningEngine(MinimalEngine):
             root.score = min_score
 
     def search(self, board: chess.Board, time_limit: chess.engine.Limit, ponder: bool, draw_offered: bool,
-               root_moves: MOVE, conversation: Conversation) -> PlayResult:
+               root_moves: MOVE, conversation: Conversation, game: model.Game) -> PlayResult:
         root = None
+        depth = 3
+
+        start_time = time.time()
+
+        increment = game.clock_increment.total_seconds()
+
+        time_left = game.clock_initial.total_seconds() - self.time_spent
+
+        if time_left < 10 and self.depth == 3:
+            conversation.send_message("player", "I am running out of time. I will decrease the depth to 2.")
+            conversation.send_message("spectator", "I am running out of time. I will decrease the depth to 2.")
+            self.depth = 2
+        elif time_left > 10 and self.depth == 2:
+            conversation.send_message("player", "I have enough time. I will increase the depth to 3.")
+            conversation.send_message("spectator", "I have enough time. I will increase the depth to 3.")
+            self.depth = 3
 
         if self.cache is None:
             root = Node(board)
-            self.alpha_beta_pruning(root, 3, -1000, 1000)
+            self.alpha_beta_pruning(root, depth, -1000, 1000)
         else:
             root = self.cache
 
@@ -103,5 +124,9 @@ class AlphaBetaPruningEngine(MinimalEngine):
             self.cache = next_child
             conversation.send_message("player", next_child.game.peek() + "results in a checkmate.")
             conversation.send_message("spectator", next_child.game.peek() + "results in a checkmate.")
+
+        end_time = time.time()
+
+        self.time_spent += end_time - start_time - increment
 
         return PlayResult(next_child.game.peek(), None)

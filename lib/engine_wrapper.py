@@ -184,7 +184,7 @@ class EngineWrapper:
                                                is_correspondence, correspondence_move_time)
 
             try:
-                best_move = self.search(board, time_limit, can_ponder, draw_offered, best_move, conversation)
+                best_move = self.search(board, time_limit, can_ponder, draw_offered, best_move, conversation, game)
             except chess.engine.EngineError as error:
                 BadMove = (chess.IllegalMoveError, chess.InvalidMoveError)
                 if any(isinstance(e, BadMove) for e in error.args):
@@ -248,7 +248,7 @@ class EngineWrapper:
         return result
 
     def search(self, board: chess.Board, time_limit: chess.engine.Limit, ponder: bool, draw_offered: bool,
-               root_moves: MOVE, conversation: Conversation) -> chess.engine.PlayResult:
+               root_moves: MOVE, conversation: Conversation, game: model.Game) -> chess.engine.PlayResult:
         """
         Tell the engine to search.
 
@@ -258,6 +258,7 @@ class EngineWrapper:
         :param draw_offered: Whether the bot was offered a draw.
         :param root_moves: If it is a list, the engine will only play a move that is in `root_moves`.
         :param conversation: The conversation with the user and spectators.
+        :param game: The game that the bot is playing.
         :return: The move to play.
         """
         time_limit = self.add_go_commands(time_limit)
@@ -556,7 +557,7 @@ class MinimalEngine(EngineWrapper):
         return "?"
 
     def search(self, board: chess.Board, time_limit: chess.engine.Limit, ponder: bool, draw_offered: bool,
-               root_moves: MOVE, conversation: Conversation) -> chess.engine.PlayResult:
+               root_moves: MOVE, conversation: Conversation, game: model.Game) -> chess.engine.PlayResult:
         """
         Choose a move.
 
