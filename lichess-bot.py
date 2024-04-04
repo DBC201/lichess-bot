@@ -609,7 +609,7 @@ def play_game(li: LICHESS_TYPE,
     with engine_wrapper.create_engine(config, game) as engine:
         engine.get_opponent_info(game)
         logger.debug(f"The engine for game {game_id} has pid={engine.get_pid()}")
-        conversation = Conversation(game, engine, li, __version__, challenge_queue)
+        conversation = Conversation(game, li, __version__, challenge_queue)
 
         logger.info(f"+++ {game}")
 
