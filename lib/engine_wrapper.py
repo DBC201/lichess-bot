@@ -17,6 +17,7 @@ from collections import Counter
 from collections.abc import Callable
 from lib import config, model, lichess
 from lib.config import Configuration
+from lib.conversation import Conversation
 from lib.timer import Timer, msec, seconds, msec_str, sec_str, to_seconds
 from extra_game_handlers import game_specific_options
 from typing import Any, Optional, Union, Literal, Type
@@ -136,7 +137,8 @@ class EngineWrapper:
                   is_correspondence: bool,
                   correspondence_move_time: datetime.timedelta,
                   engine_cfg: config.Configuration,
-                  min_time: datetime.timedelta) -> None:
+                  min_time: datetime.timedelta,
+                  conversation: Conversation) -> None:
         """
         Play a move.
 
@@ -150,6 +152,7 @@ class EngineWrapper:
         :param correspondence_move_time: The time the engine will think if `is_correspondence` is true.
         :param engine_cfg: Options for external moves (e.g. from an opening book), and for engine resignation and draw offers.
         :param min_time: Minimum time to spend, in seconds.
+        :param conversation: The conversation with the user and spectators.
         :return: The move to play.
         """
         polyglot_cfg = engine_cfg.polyglot
@@ -181,7 +184,7 @@ class EngineWrapper:
                                                is_correspondence, correspondence_move_time)
 
             try:
-                best_move = self.search(board, time_limit, can_ponder, draw_offered, best_move)
+                best_move = self.search(board, time_limit, can_ponder, draw_offered, best_move, conversation)
             except chess.engine.EngineError as error:
                 BadMove = (chess.IllegalMoveError, chess.InvalidMoveError)
                 if any(isinstance(e, BadMove) for e in error.args):
@@ -245,7 +248,7 @@ class EngineWrapper:
         return result
 
     def search(self, board: chess.Board, time_limit: chess.engine.Limit, ponder: bool, draw_offered: bool,
-               root_moves: MOVE) -> chess.engine.PlayResult:
+               root_moves: MOVE, conversation: Conversation) -> chess.engine.PlayResult:
         """
         Tell the engine to search.
 
@@ -254,6 +257,7 @@ class EngineWrapper:
         :param ponder: Whether the engine can ponder.
         :param draw_offered: Whether the bot was offered a draw.
         :param root_moves: If it is a list, the engine will only play a move that is in `root_moves`.
+        :param conversation: The conversation with the user and spectators.
         :return: The move to play.
         """
         time_limit = self.add_go_commands(time_limit)
@@ -552,7 +556,7 @@ class MinimalEngine(EngineWrapper):
         return "?"
 
     def search(self, board: chess.Board, time_limit: chess.engine.Limit, ponder: bool, draw_offered: bool,
-               root_moves: MOVE) -> chess.engine.PlayResult:
+               root_moves: MOVE, conversation: Conversation) -> chess.engine.PlayResult:
         """
         Choose a move.
 

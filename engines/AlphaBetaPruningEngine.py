@@ -1,7 +1,8 @@
 import chess
-from lib.engine_wrapper import MinimalEngine
+
+from lib.conversation import Conversation
+from lib.engine_wrapper import MinimalEngine, MOVE
 from chess.engine import PlayResult
-from typing import Any
 import random
 
 # https://github.com/DBC201/chess-ai/blob/master/public/ai.js
@@ -84,7 +85,8 @@ class AlphaBetaPruningEngine(MinimalEngine):
                     break
             root.score = min_score
 
-    def search(self, board: chess.Board, *args: Any) -> PlayResult:
+    def search(self, board: chess.Board, time_limit: chess.engine.Limit, ponder: bool, draw_offered: bool,
+               root_moves: MOVE, conversation: Conversation) -> PlayResult:
         root = None
         if self.cache is None:
             root = Node(board)
@@ -98,5 +100,7 @@ class AlphaBetaPruningEngine(MinimalEngine):
 
         if (root.score == 1000 or root.score == -1000) and len(possible_children) > 0:
             self.cache = next_child
+            conversation.send_message("player", next_child.game.peek() + "results in a checkmate.")
+            conversation.send_message("spectator", next_child.game.peek() + "results in a checkmate.")
 
         return PlayResult(next_child.game.peek(), None)

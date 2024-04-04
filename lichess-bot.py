@@ -660,7 +660,8 @@ def play_game(li: LICHESS_TYPE,
                                          is_correspondence,
                                          correspondence_move_time,
                                          engine_cfg,
-                                         fake_think_time(config, board, game))
+                                         fake_think_time(config, board, game),
+                                         conversation)
                         time.sleep(to_seconds(delay))
                     elif is_game_over(game):
                         tell_user_game_result(game, board)
