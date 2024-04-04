@@ -37,7 +37,8 @@ class Conversation:
         :param line: Information about the message.
         """
         logger.info(f'*** {self.game.url()} [{line.room}] {line.username}: {line.text}')
-        self.send_reply(line, "Focus on the game buddy, I'm not here to chat.")
+        if line.username != self.game.username:
+            self.send_reply(line, "Focus on the game buddy, I'm not here to chat.")
 
     def send_reply(self, line: ChatLine, reply: str) -> None:
         """
