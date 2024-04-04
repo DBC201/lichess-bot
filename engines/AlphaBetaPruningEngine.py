@@ -88,6 +88,12 @@ class AlphaBetaPruningEngine(MinimalEngine):
     def search(self, board: chess.Board, time_limit: chess.engine.Limit, ponder: bool, draw_offered: bool,
                root_moves: MOVE, conversation: Conversation) -> PlayResult:
         root = None
+        depth = 3
+
+        if (board.turn == chess.WHITE and time_limit.white_clock < 10) \
+                or (board.turn == chess.BLACK and time_limit.black_clock < 10):
+            depth = 2
+
         if self.cache is None:
             root = Node(board)
             self.alpha_beta_pruning(root, 3, -1000, 1000)
