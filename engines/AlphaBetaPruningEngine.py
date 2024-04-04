@@ -100,18 +100,21 @@ class AlphaBetaPruningEngine(MinimalEngine):
 
         time_left = game.clock_initial.total_seconds() - self.time_spent
 
-        if time_left < 5 and self.max_depth != 1:
-            conversation.send_message("player", "I am about to run out of time. I will only search one move ahead.")
-            conversation.send_message("spectator", "I am about to run out of time. I will only search one move ahead.")
-            self.max_depth = 1
-        elif time_left <= 10 and self.max_depth != 2:
-            conversation.send_message("player", "I am running low on time. I will only search two moves ahead.")
-            conversation.send_message("spectator", "I am running low on time. I will only search two moves ahead.")
-            self.max_depth = 2
-        elif time_left > 10 and self.max_depth != 3:
-            conversation.send_message("player", "I have enough time. I will search three moves ahead.")
-            conversation.send_message("spectator", "I have enough time. I will search three moves ahead.")
-            self.max_depth = 3
+        if time_left < 5:
+            if self.max_depth != 1:
+                conversation.send_message("player", "I am about to run out of time. I will only search one move ahead.")
+                conversation.send_message("spectator", "I am about to run out of time. I will only search one move ahead.")
+                self.max_depth = 1
+        elif time_left <= 10:
+            if self.max_depth != 2:
+                conversation.send_message("player", "I am running low on time. I will only search two moves ahead.")
+                conversation.send_message("spectator", "I am running low on time. I will only search two moves ahead.")
+                self.max_depth = 2
+        elif time_left > 10:
+            if self.max_depth != 3:
+                conversation.send_message("player", "I have enough time. I will search three moves ahead.")
+                conversation.send_message("spectator", "I have enough time. I will search three moves ahead.")
+                self.max_depth = 3
 
         if self.cache is None:
             root = Node(board)
