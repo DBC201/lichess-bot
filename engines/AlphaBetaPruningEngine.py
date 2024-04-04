@@ -35,7 +35,7 @@ class Node:
 
     def update_score(self):
         if self.game.is_checkmate():
-            self.score = 1000 if self.game.turn == chess.WHITE else -1000
+            self.score = -1000 if self.game.turn == chess.WHITE else 1000
             return
 
         if self.game.is_stalemate():
@@ -59,10 +59,10 @@ class Node:
 class AlphaBetaPruningEngine(MinimalEngine):
     cache = None
     time_spent = 0
-    depth = 3
+    max_depth = 3
 
-    def alpha_beta_pruning(self, root: Node, max_depth: int, alpha: int, beta: int) -> None:
-        if root.depth >= max_depth or root.game.is_game_over():
+    def alpha_beta_pruning(self, root: Node, alpha: int, beta: int) -> None:
+        if root.depth >= self.max_depth or root.game.is_game_over():
             return
 
         if root.game.turn == chess.WHITE:
@@ -71,7 +71,7 @@ class AlphaBetaPruningEngine(MinimalEngine):
                 child = Node(root.game)
                 child.add_parent(root)
                 child.game.push(move)
-                self.alpha_beta_pruning(child, max_depth, alpha, beta)
+                self.alpha_beta_pruning(child, alpha, beta)
                 max_score = max(max_score, child.get_score())
                 alpha = max(alpha, max_score)
                 if beta < alpha:
@@ -83,7 +83,7 @@ class AlphaBetaPruningEngine(MinimalEngine):
                 child = Node(root.game)
                 child.add_parent(root)
                 child.game.push(move)
-                self.alpha_beta_pruning(child, max_depth, alpha, beta)
+                self.alpha_beta_pruning(child, alpha, beta)
                 min_score = min(min_score, child.get_score())
                 beta = min(beta, min_score)
                 if beta < alpha:
@@ -93,7 +93,6 @@ class AlphaBetaPruningEngine(MinimalEngine):
     def search(self, board: chess.Board, time_limit: chess.engine.Limit, ponder: bool, draw_offered: bool,
                root_moves: MOVE, conversation: Conversation, game: model.Game) -> PlayResult:
         root = None
-        depth = 3
 
         start_time = time.time()
 
@@ -101,18 +100,22 @@ class AlphaBetaPruningEngine(MinimalEngine):
 
         time_left = game.clock_initial.total_seconds() - self.time_spent
 
-        if time_left < 10 and self.depth == 3:
-            conversation.send_message("player", "I am running out of time. I will decrease the depth to 2.")
-            conversation.send_message("spectator", "I am running out of time. I will decrease the depth to 2.")
-            self.depth = 2
-        elif time_left > 10 and self.depth == 2:
-            conversation.send_message("player", "I have enough time. I will increase the depth to 3.")
-            conversation.send_message("spectator", "I have enough time. I will increase the depth to 3.")
-            self.depth = 3
+        if time_left < 5 and self.max_depth != 1:
+            conversation.send_message("player", "I am about to run out of time. I will only search one move ahead.")
+            conversation.send_message("spectator", "I am about to run out of time. I will only search one move ahead.")
+            self.max_depth = 1
+        elif time_left <= 10 and self.max_depth != 2:
+            conversation.send_message("player", "I am running low on time. I will only search two moves ahead.")
+            conversation.send_message("spectator", "I am running low on time. I will only search two moves ahead.")
+            self.max_depth = 2
+        elif time_left > 10 and self.max_depth != 3:
+            conversation.send_message("player", "I have enough time. I will search three moves ahead.")
+            conversation.send_message("spectator", "I have enough time. I will search three moves ahead.")
+            self.max_depth = 3
 
         if self.cache is None:
             root = Node(board)
-            self.alpha_beta_pruning(root, depth, -1000, 1000)
+            self.alpha_beta_pruning(root, -1000, 1000)
         else:
             root = self.cache
 
@@ -120,10 +123,13 @@ class AlphaBetaPruningEngine(MinimalEngine):
 
         next_child = random.choice(possible_children)
 
-        if (root.score == 1000 or root.score == -1000) and len(possible_children) > 0:
-            self.cache = next_child
-            conversation.send_message("player", next_child.game.peek() + "results in a checkmate.")
-            conversation.send_message("spectator", next_child.game.peek() + "results in a checkmate.")
+        if (root.score == 1000 or root.score == -1000) and len(next_child.children) > 0:
+            possible_children = [child for child in next_child.children if child.get_score() == next_child.get_score()]
+            self.cache = random.choice(possible_children)
+            conversation.send_message("player", next_child.game.peek().uci() + "results in a checkmate.")
+            conversation.send_message("spectator", next_child.game.peek().uci() + "results in a checkmate.")
+        else:
+            self.cache = None
 
         end_time = time.time()
 
