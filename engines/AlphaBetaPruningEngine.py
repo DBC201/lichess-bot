@@ -12,11 +12,15 @@ import random
 
 
 class Node:
-    def __init__(self, board: chess.Board):
+    def __init__(self, board: chess.Board, piece_score):
         self.game = chess.Board(board.fen())
-        self.score = None
+
+        self.piece_score = piece_score
+        self.eval_score = None
+
         self.parent = None
         self.children = []
+
         self.depth = 0
 
         self.piece_values = {
@@ -33,27 +37,61 @@ class Node:
         parent.children.append(self)
         self.depth = parent.depth + 1
 
-    def update_score(self):
+    def get_score(self):
         if self.game.is_checkmate():
-            self.score = -1000 if self.game.turn == chess.WHITE else 1000
+            self.eval_score = 1000 if self.game.turn == chess.BLACK else -1000
+            return self.eval_score
+
+        if self.game.is_stalemate():
+            self.eval_score = 0
+            return self.eval_score
+
+        if self.eval_score is not None:
+            return self.eval_score
+        else:
+            return self.piece_score
+
+    def get_ordered_moves(self):
+        moves = self.game.legal_moves
+
+        has_capture = False
+
+        ordered_moves = []
+
+        for move in moves:
+            if self.game.is_capture(move):
+                if len(self.game.move_stack) > 0 and self.game.peek().to_square == move.to_square:
+                    prev_move = self.game.pop()
+                    if self.game.is_capture(prev_move):
+                        has_capture = True
+                    self.game.push(prev_move)
+
+                piece = self.game.piece_at(move.to_square)
+                if piece is None: # en passant
+                    ordered_moves.append((move, 1))
+                else:
+                    ordered_moves.append((move, self.piece_values[piece.piece_type]))
+            else:
+                ordered_moves.append((move, 0))
+
+        return ordered_moves, has_capture
+
+    def eval(self):
+        if self.game.is_checkmate():
+            self.eval_score = -1000 if self.game.turn == chess.WHITE else 1000
             return
 
         if self.game.is_stalemate():
-            self.score = 0
+            self.eval_score = 0
             return
 
         pieces = self.game.piece_map()
-        self.score = 0
+        self.eval_score = 0
         for square, piece in pieces.items():
             if piece.color == chess.WHITE:
-                self.score += self.piece_values[piece.piece_type]
+                self.eval_score += self.piece_values[piece.piece_type]
             else:
-                self.score -= self.piece_values[piece.piece_type]
-
-    def get_score(self):
-        if self.score is None:
-            self.update_score()
-        return self.score
+                self.eval_score -= self.piece_values[piece.piece_type]
 
 
 class AlphaBetaPruningEngine(MinimalEngine):
@@ -61,38 +99,59 @@ class AlphaBetaPruningEngine(MinimalEngine):
     time_spent = 0
     max_depth = 3
 
-    def alpha_beta_pruning(self, root: Node, alpha: int, beta: int) -> None:
-        if root.depth >= self.max_depth or root.game.is_game_over():
+    def alpha_beta_pruning(self, root: Node, alpha: int, beta: int, multiple_moves_flag: bool) -> None:
+        ordered_moves, has_capture = root.get_ordered_moves()
+
+        if root.game.is_game_over():
+            return
+        elif root.depth >= self.max_depth and not has_capture:
             return
 
         if root.game.turn == chess.WHITE:
             max_score = -1000
-            for move in root.game.legal_moves:
-                child = Node(root.game)
+            for move, score_change in ordered_moves:
+                child = Node(root.game, root.get_score() + score_change)
                 child.add_parent(root)
                 child.game.push(move)
-                self.alpha_beta_pruning(child, alpha, beta)
+                self.alpha_beta_pruning(child, alpha, beta, multiple_moves_flag)
+
                 max_score = max(max_score, child.get_score())
+
                 alpha = max(alpha, max_score)
-                if beta < alpha:
+
+                if multiple_moves_flag and beta < alpha:
                     break
-            root.score = max_score
+                elif not multiple_moves_flag and beta <= alpha:
+                    break
+            root.eval_score = max_score
         else:
             min_score = 1000
-            for move in root.game.legal_moves:
-                child = Node(root.game)
+            for move, score_change in ordered_moves:
+                child = Node(root.game, root.get_score() - score_change)
                 child.add_parent(root)
                 child.game.push(move)
-                self.alpha_beta_pruning(child, alpha, beta)
+                self.alpha_beta_pruning(child, alpha, beta, multiple_moves_flag)
+
                 min_score = min(min_score, child.get_score())
+
                 beta = min(beta, min_score)
-                if beta < alpha:
+
+                if multiple_moves_flag and beta < alpha:
                     break
-            root.score = min_score
+                elif not multiple_moves_flag and beta <= alpha:
+                    break
+            root.eval_score = min_score
 
     def search(self, board: chess.Board, time_limit: chess.engine.Limit, ponder: bool, draw_offered: bool,
                root_moves: MOVE, conversation: Conversation, game: model.Game) -> PlayResult:
         root = None
+
+        is_opening = board.ply() < 20
+
+        if is_opening and self.max_depth > 2:
+            conversation.send_message("player", "I am in the opening phase. I will search two moves ahead.")
+            conversation.send_message("spectator", "I am in the opening phase. I will search two moves ahead.")
+            self.max_depth = 2
 
         start_time = time.time()
 
@@ -110,25 +169,35 @@ class AlphaBetaPruningEngine(MinimalEngine):
                 conversation.send_message("player", "I am running low on time. I will only search two moves ahead.")
                 conversation.send_message("spectator", "I am running low on time. I will only search two moves ahead.")
                 self.max_depth = 2
-        elif time_left > 10:
+        elif time_left > 10 and not is_opening:
             if self.max_depth != 3:
                 conversation.send_message("player", "I have enough time. I will search three moves ahead.")
                 conversation.send_message("spectator", "I have enough time. I will search three moves ahead.")
                 self.max_depth = 3
 
         if self.cache is None:
-            root = Node(board)
-            self.alpha_beta_pruning(root, -1000, 1000)
+            root = Node(board, None)
+            root.eval()
+            self.alpha_beta_pruning(root, -1001, 1001, is_opening)
         else:
             root = self.cache
 
-        possible_children = [child for child in root.children if child.get_score() == root.get_score()]
+        next_child = None
 
-        next_child = random.choice(possible_children)
+        if is_opening:
+            possible_children = [child for child in root.children if child.get_score() == root.get_score()]
+            next_child = random.choice(possible_children)
+        else:
+            for child in root.children:
+                if child.get_score() == root.get_score():
+                    next_child = child
+                    break
 
-        if (root.score == 1000 or root.score == -1000) and len(next_child.children) > 0:
-            possible_children = [child for child in next_child.children if child.get_score() == next_child.get_score()]
-            self.cache = random.choice(possible_children)
+        if (root.get_score() == 1000 or root.get_score() == -1000) and len(next_child.children) > 0:
+            for child in next_child.children:
+                if child.get_score() == root.get_score():
+                    self.cache = child
+                    break
             conversation.send_message("player", next_child.game.peek().uci() + "results in a checkmate.")
             conversation.send_message("spectator", next_child.game.peek().uci() + "results in a checkmate.")
         else:
