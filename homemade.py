@@ -95,4 +95,4 @@ class ComboEngine(ExampleEngine):
         return PlayResult(move, None, draw_offered=draw_offered)
 
 
-from engines.AlphaBetaPruningEngine import AlphaBetaPruningEngine
+from engines.HomemadeChessAiWrapper import HomemadeChessAiWrapper
