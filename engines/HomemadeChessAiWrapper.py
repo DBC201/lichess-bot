@@ -27,10 +27,10 @@ class HomemadeChessAiWrapper(MinimalEngine):
                 conversation.send_message("player", "I am about to run out of time. I will only search one move ahead.")
                 conversation.send_message("spectator", "I am about to run out of time. I will only search one move ahead.")
                 self.chess_ai.max_depth = 1
-        elif time_left <= 10:
+        elif time_left <= 60:
             if self.chess_ai.max_depth != 2:
-                conversation.send_message("player", "I am running low on time. I will only search two moves ahead.")
-                conversation.send_message("spectator", "I am running low on time. I will only search two moves ahead.")
+                conversation.send_message("player", "I have less than a minute, so I will only search two moves ahead.")
+                conversation.send_message("spectator", "I have less than a minute, so I will only search two moves ahead.")
                 self.chess_ai.max_depth = 2
         else:
             if self.chess_ai.max_depth != 3:
