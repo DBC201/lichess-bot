@@ -148,6 +148,12 @@ class Node:
                                                calculate_distance_to_edge(move.from_square, BOTTOM_EDGE_SQUARES))
 
                     score_change += (old_distance_to_edge - new_distance_to_edge) * 25
+                elif piece.piece_type == chess.PAWN:
+                    edge_squares = TOP_EDGE_SQUARES if piece.color == chess.WHITE else BOTTOM_EDGE_SQUARES
+                    old_distance_to_edge = calculate_distance_to_edge(move.to_square, edge_squares)
+                    new_distance_to_edge = calculate_distance_to_edge(move.from_square, edge_squares)
+
+                    score_change += (new_distance_to_edge - old_distance_to_edge) * 25
 
             if score_change in group_by_score_change:
                 group_by_score_change[score_change].append(move)
