@@ -237,7 +237,7 @@ class ChessAi:
     def get_move(self, board: chess.Board):
         root = None
 
-        if self.cache is None:
+        if self.cache is None or self.cache.game != board:
             root = Node(board, None)
             root.eval()
             self.alpha_beta_pruning(root, BLACK_WIN_SCORE-1, WHITE_WIN_SCORE+1, True)
